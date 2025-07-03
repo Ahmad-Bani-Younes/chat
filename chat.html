@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>💬 محادثة</title>
+  <style>
+    body { font-family: Arial; direction: rtl; padding: 20px; background: #eef; }
+    #chatBox { background: #fff; border-radius: 10px; padding: 15px; height: 400px; overflow-y: auto; border: 1px solid #ccc; }
+    .msg { padding: 5px 10px; margin: 10px 0; max-width: 70%; border-radius: 10px; }
+    .me { background: #c8f7c5; align-self: flex-end; margin-right: auto; }
+    .other { background: #f0f0f0; align-self: flex-start; margin-left: auto; }
+    #inputArea { margin-top: 15px; display: flex; gap: 10px; }
+    input { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #aaa; }
+    button { padding: 8px 20px; border: none; border-radius: 6px; background: #4CAF50; color: white; cursor: pointer; }
+    h2 { text-align: center; }
+  </style>
+</head>
+<body>
+  <h2>💬 صفحة المحادثة</h2>
+  <div id="chatBox" style="display: flex; flex-direction: column;"></div>
+  <div id="inputArea">
+    <input type="text" id="msgInput" placeholder="اكتب رسالتك..." />
+    <button onclick="sendMessage()">📤 إرسال</button>
+  </div>
+
+  <script>
+    const currentUser = JSON.parse(sessionStorage.getItem('user'));
+    const toUserId = new URLSearchParams(window.location.search).get('to');
+    const apiUsers = 'https://68650ba05b5d8d03397f75b3.mockapi.io/users';
+    const apiMessages = 'https://68650ba05b5d8d03397f75b3.mockapi.io/messages';
+
+    if (!currentUser || !toUserId) {
+      alert("❌ البيانات غير كافية");
+      window.location.href = "index.html";
+    }
+
+    async function loadChat() {
+      const res = await fetch(apiMessages);
+      const messages = await res.json();
+
+      const filtered = messages.filter(m =>
+        (m.from === currentUser.id && m.to === toUserId) ||
+        (m.from === toUserId && m.to === currentUser.id)
+      );
+
+      filtered.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      const chatBox = document.getElementById('chatBox');
+      chatBox.innerHTML = '';
+      filtered.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'msg ' + (msg.from === currentUser.id ? 'me' : 'other');
+        div.innerText = msg.content;
+        chatBox.appendChild(div);
+      });
+
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('msgInput');
+      const content = input.value.trim();
+      if (!content) return;
+
+      await fetch(apiMessages, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: currentUser.id,
+          to: toUserId,
+          content,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      input.value = '';
+      loadChat();
+    }
+
+    loadChat();
+    setInterval(loadChat, 3000); // تحديث تلقائي كل 3 ثواني
+  </script>
+</body>
+</html>

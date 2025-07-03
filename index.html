@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>📋 قائمة الأصدقاء</title>
+  <style>
+    body { font-family: Arial; direction: rtl; padding: 20px; text-align: center; background: #f4f4f4; }
+    .user-card { border: 1px solid #ccc; padding: 10px; margin: 10px auto; width: 300px; border-radius: 8px; background: #fff; }
+    button { padding: 5px 15px; margin-top: 5px; }
+    h3 { margin-top: 30px; color: #333; }
+    a { text-decoration: none; color: green; }
+  </style>
+</head>
+<body>
+  <h2>👋 مرحبًا <span id="userName"></span></h2>
+  <button onclick="logout()">🚪 تسجيل الخروج</button>
+
+  <h3>👥 الأصدقاء المقترحون</h3>
+  <div id="userList"></div>
+
+  <h3>📩 طلبات الصداقة</h3>
+  <div id="pendingList"></div>
+
+  <h3>✅ أصدقاؤك</h3>
+<div id="friendsList"></div>
+
+
+  <script>
+    const api = 'https://68650ba05b5d8d03397f75b3.mockapi.io/users';
+    const currentUser = JSON.parse(sessionStorage.getItem('user'));
+
+    if (!currentUser || !currentUser.id) {
+      alert("❌ الرجاء تسجيل الدخول أولاً");
+      window.location.href = "login.html";
+    }
+
+    document.getElementById('userName').innerText = currentUser.name;
+
+    async function loadUsers() {
+      const res = await fetch(api);
+      const users = await res.json();
+
+      const myData = users.find(u => u.id === currentUser.id);
+      const friends = myData.friends || [];
+      const pending = myData.pendingRequests || [];
+
+      const userList = document.getElementById('userList');
+      userList.innerHTML = '';
+
+      const pendingList = document.getElementById('pendingList');
+      pendingList.innerHTML = '';
+
+    users.forEach(user => {
+  if (user.id === currentUser.id) return;
+
+  const isFriend = friends.includes(user.id);
+  const alreadySent = (user.pendingRequests || []).includes(currentUser.id);
+
+  // ✅ عرض الأصدقاء الحاليين في قسم منفصل
+  if (isFriend) {
+    const card = document.createElement('div');
+    card.className = 'user-card';
+    card.innerHTML = `
+      <h3>${user.name}</h3>
+      <p>📞 ${user.phone || '---'}</p>
+      <a href="chat.html?to=${user.id}">💬 افتح الدردشة</a>
+    `;
+    friendsList.appendChild(card);
+    return;
+  }
+
+  // 📩 عرض طلبات الصداقة
+  if (pending.includes(user.id)) {
+    const card = document.createElement('div');
+    card.className = 'user-card';
+    card.innerHTML = `
+      <h3>${user.name}</h3>
+      <p>📞 ${user.phone || '---'}</p>
+      <button onclick="acceptRequest('${user.id}')">✅ قبول الصداقة</button>
+    `;
+    pendingList.appendChild(card);
+    return;
+  }
+
+  // 👥 عرض الأصدقاء المقترحين أو قيد الانتظار
+  const card = document.createElement('div');
+  card.className = 'user-card';
+  card.innerHTML = `
+    <h3>${user.name}</h3>
+    <p>📞 ${user.phone || '---'}</p>
+    ${
+      alreadySent
+        ? `<button disabled>📨 بانتظار الموافقة</button>`
+        : `<button onclick="sendRequest('${user.id}')">➕ أرسل طلب صداقة</button>`
+    }
+  `;
+  userList.appendChild(card);
+});
+
+    }
+
+    // إرسال طلب صداقة: أضف نفسك إلى pendingRequests عند الطرف الآخر
+    async function sendRequest(targetId) {
+      const res = await fetch(`${api}/${targetId}`);
+      const targetUser = await res.json();
+      const updatedPending = targetUser.pendingRequests || [];
+
+      if (!updatedPending.includes(currentUser.id)) {
+        updatedPending.push(currentUser.id);
+        await fetch(`${api}/${targetId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...targetUser, pendingRequests: updatedPending })
+        });
+        alert("📩 تم إرسال طلب الصداقة");
+        loadUsers();
+      }
+    }
+
+    // قبول الصداقة: أضف بعض كأصدقاء واحذف الطلب من pending
+    async function acceptRequest(senderId) {
+      const myRes = await fetch(`${api}/${currentUser.id}`);
+      const myData = await myRes.json();
+      const myFriends = myData.friends || [];
+      const myPending = myData.pendingRequests || [];
+
+      if (!myFriends.includes(senderId)) myFriends.push(senderId);
+      const updatedPending = myPending.filter(id => id !== senderId);
+
+      await fetch(`${api}/${currentUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...myData, friends: myFriends, pendingRequests: updatedPending })
+      });
+
+      // أضف أنت كصديق للطرف الآخر أيضًا
+      const otherRes = await fetch(`${api}/${senderId}`);
+      const otherData = await otherRes.json();
+      const otherFriends = otherData.friends || [];
+
+      if (!otherFriends.includes(currentUser.id)) {
+        otherFriends.push(currentUser.id);
+        await fetch(`${api}/${senderId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...otherData, friends: otherFriends })
+        });
+      }
+
+      alert("✅ تمت إضافة الصديق بنجاح");
+      loadUsers();
+    }
+
+    function logout() {
+      sessionStorage.removeItem('user');
+      window.location.href = "login.html";
+    }
+
+    const friendsList = document.getElementById('friendsList');
+
+
+    loadUsers();
+  </script>
+</body>
+</html>

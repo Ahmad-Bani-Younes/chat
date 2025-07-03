@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>إنشاء حساب</title>
+  <style>
+    body { font-family: Arial; direction: rtl; text-align: center; padding: 40px; background: #f4f4f4; }
+    input, button {
+      padding: 10px;
+      width: 80%;
+      max-width: 300px;
+      margin: 10px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #2196F3;
+      color: white;
+      cursor: pointer;
+    }
+    a { display: block; margin-top: 10px; color: #333; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h2>📝 إنشاء حساب جديد</h2>
+  <input type="text" id="name" placeholder="اسم المستخدم" />
+  <input type="text" id="phone" placeholder="رقم الهاتف" />
+  <input type="password" id="password" placeholder="كلمة المرور" />
+  <br>
+  <button onclick="register()">تسجيل</button>
+  <a href="login.html">🔙 العودة لتسجيل الدخول</a>
+
+  <script>
+    const apiUsers = 'https://68650ba05b5d8d03397f75b3.mockapi.io/users';
+
+async function register() {
+  const name = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const password = document.getElementById('password').value.trim();
+
+  if (!name || !phone || !password)
+    return alert("❌ يرجى تعبئة جميع الحقول");
+
+  // 👇 بدل هذا السطر:
+  // const res = await fetch(`${apiUsers}?phone=${encodeURIComponent(phone)}`);
+  // const users = await res.json();
+
+  const res = await fetch(apiUsers);
+  const allUsers = await res.json();
+
+  // ✅ افحص يدويًا إذا في رقم مسجل مسبقاً
+  const phoneExists = allUsers.some(u => u.phone === phone);
+
+  if (phoneExists) {
+    alert("⚠️ هذا الرقم مسجل مسبقًا");
+    return;
+  }
+
+  const newUser = { name, phone, password, friends: [] };
+
+  const createRes = await fetch(apiUsers, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newUser)
+  });
+
+  const createdUser = await createRes.json();
+  sessionStorage.setItem('user', JSON.stringify(createdUser));
+  window.location.href = 'index.html';
+}
+
+  </script>
+</body>
+</html>
